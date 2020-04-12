@@ -2,7 +2,6 @@
 
     <PropertyGroup>
         <TargetFramework>netcoreapp2.2</TargetFramework>
-
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
@@ -15,7 +14,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Polly.Proxy\Polly.Proxy.csproj" />
+      <ProjectReference Include="..\Polly.Interception\Polly.Interception.csproj" />
     </ItemGroup>
 
 </Project>

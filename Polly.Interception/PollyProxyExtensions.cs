@@ -1,7 +1,7 @@
 ﻿using System;
 using Castle.DynamicProxy;
 
-namespace Polly.Proxy
+namespace Polly.Interception
 {
     public static class PollyProxyExtensions
     {

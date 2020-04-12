@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using NSubstitute;
 using NUnit.Framework;
 
-namespace Polly.Proxy.Tests
+namespace Polly.Interception.Tests
 {
     public class Tests
     {

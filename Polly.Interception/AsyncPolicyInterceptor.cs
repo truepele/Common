@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Castle.DynamicProxy;
 
-namespace Polly.Proxy
+namespace Polly.Interception
 {
     public class AsyncPolicyInterceptor : IAsyncInterceptor
     {
