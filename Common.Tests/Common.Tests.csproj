@@ -3,18 +3,26 @@
     <PropertyGroup>
         <TargetFramework>netcoreapp2.2</TargetFramework>
         <IsPackable>false</IsPackable>
+        <RootNamespace>Polly.Interception.Tests</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.3" />
         <PackageReference Include="NSubstitute" Version="4.2.1" />
         <PackageReference Include="nunit" Version="3.11.0" />
         <PackageReference Include="NUnit3TestAdapter" Version="3.11.0" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.9.0" />
         <PackageReference Include="Polly" Version="7.1.1" />
+        <PackageReference Include="Polly.Caching.Memory" Version="3.0.2" />
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Polly.Interception.Caching\Polly.Interception.Caching.csproj" />
       <ProjectReference Include="..\Polly.Interception\Polly.Interception.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="Tests.cs" />
     </ItemGroup>
 
 </Project>

@@ -2,9 +2,11 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Polly.Interception", "Polly.Interception\Polly.Interception.csproj", "{A92D8F2F-7A80-403B-BF6F-0838777E3594}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Polly.Interception.Tests", "Polly.Interception.Tests\Polly.Interception.Tests.csproj", "{877FEB0B-2DBF-4CE8-9F0C-5E9428C48D1F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common.Tests", "Common.Tests\Common.Tests.csproj", "{877FEB0B-2DBF-4CE8-9F0C-5E9428C48D1F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{EBC43AE8-2D44-4B5E-AA02-801FD0C818D8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Polly.Interception.Caching", "Polly.Interception.Caching\Polly.Interception.Caching.csproj", "{B5D854A9-6918-469C-9A08-ACFEF9DF40B1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +22,10 @@ Global
 		{877FEB0B-2DBF-4CE8-9F0C-5E9428C48D1F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{877FEB0B-2DBF-4CE8-9F0C-5E9428C48D1F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{877FEB0B-2DBF-4CE8-9F0C-5E9428C48D1F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B5D854A9-6918-469C-9A08-ACFEF9DF40B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B5D854A9-6918-469C-9A08-ACFEF9DF40B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5D854A9-6918-469C-9A08-ACFEF9DF40B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B5D854A9-6918-469C-9A08-ACFEF9DF40B1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{877FEB0B-2DBF-4CE8-9F0C-5E9428C48D1F} = {EBC43AE8-2D44-4B5E-AA02-801FD0C818D8}
