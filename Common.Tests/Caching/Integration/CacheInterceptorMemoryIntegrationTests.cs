@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using Caching;
 using Caching.Interception;
@@ -69,8 +70,9 @@ namespace Common.Tests.Caching.Integration
             Debug.WriteLine(sw.Elapsed);
             Console.WriteLine(sw.Elapsed);
             
-            var result21 = await service.GetAsync();
-            var result22 = await service.GetAsync();
+            var cts = new CancellationTokenSource();
+            var result21 = await service.GetAsync(cts.Token);
+            var result22 = await service.GetAsync(cts.Token);
             
             var result31 = await service.GetStringAsync(-1);
             var result32 = await service.GetStringAsync(-1);
@@ -111,7 +113,7 @@ namespace Common.Tests.Caching.Integration
         public interface IService<in TParam, TResult>
         {
             Task<TResult> GetAsync(TParam param);
-            Task<TResult> GetAsync();
+            Task<TResult> GetAsync(CancellationToken cancellationToken);
             Task<string> GetStringAsync(TParam param);
             string GetString();
         }
@@ -141,7 +143,7 @@ namespace Common.Tests.Caching.Integration
             }
         
             [Cache(10, ExpirationType.Sliding)]
-            public Task<TResult> GetAsync()
+            public Task<TResult> GetAsync(CancellationToken cancellationToke)
             {
                 return _funcParamless();
             }

@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Castle.DynamicProxy;
 
@@ -49,13 +50,16 @@ namespace Caching.Interception
 
             var capture = invocation.CaptureProceedInfo();
             
+            var cancellationArg = invocation.Arguments.FirstOrDefault(a => a is CancellationToken);
+
             invocation.ReturnValue = _cache.GetOrCreateAsync(CreateOperationKey(invocation),
                 options,
                 _ =>
                 {
                     capture.Invoke();
                     return (Task<TResult>)invocation.ReturnValue;
-                });
+                },
+                (CancellationToken?)cancellationArg ?? default);
         }
         
         private static bool TryGetCacheEntryOptions(IInvocation invocation, out CacheEntryOptions cacheEntryOptions)

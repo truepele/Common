@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Caching;
 using Caching.Interception;
@@ -21,7 +22,7 @@ namespace Common.Tests.Caching
             
             string GetStuffNoAttr();
             
-            Task<string> GetStuffAsync();
+            Task<string> GetStuffAsync(CancellationToken cancellationToken);
             
             string GetStuff();
         }
@@ -57,7 +58,7 @@ namespace Common.Tests.Caching
             }
 
             [Cache]
-            public Task<string> GetStuffAsync()
+            public Task<string> GetStuffAsync(CancellationToken cancellationToken)
             {
                 return Task.FromResult(_val);
             }
@@ -199,8 +200,8 @@ namespace Common.Tests.Caching
             var instance = generator.CreateInterfaceProxyWithTargetInterface(target, interceptor);
             
             // Act
-            var result1 = await instance.GetStuffAsync();
-            var result2 = await instance.GetStuffAsync();
+            var result1 = await instance.GetStuffAsync(CancellationToken.None);
+            var result2 = await instance.GetStuffAsync(CancellationToken.None);
             
             // Assert
             Assert.AreEqual(2, cache.ReceivedCalls().Count());

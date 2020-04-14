@@ -70,8 +70,11 @@ namespace Caching
         public async Task<TValue> GetOrCreateAsync<TValue>(string key, CacheEntryOptions options, Func<string, Task<TValue>> factory,
             CancellationToken cancellation = default)
         {
-            if (options == null) throw new ArgumentNullException(nameof(options));
-            
+            if (options == null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
+
             if (_memoryCache.TryGetValue<TValue>(key, out var value))
             {
                 return value;

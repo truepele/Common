@@ -100,8 +100,11 @@ namespace Caching
             Func<string, Task<TValue>> factory,
             CancellationToken cancellation = default)
         {
-            if (options == null) throw new ArgumentNullException(nameof(options));
-            
+            if (options == null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
+
             try
             {
                 var strValue = await _distributedCache.GetStringAsync(key, cancellation);

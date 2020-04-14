@@ -10,7 +10,7 @@ using StackExchange.Redis;
 
 namespace Common.Tests.Caching.Integration
 {
-    [Ignore("Do not run on build")]
+    //[Ignore("Do not run on build")]
     [TestFixture]
     public class CacheInterceptorRedisIntegrationTests
     {
