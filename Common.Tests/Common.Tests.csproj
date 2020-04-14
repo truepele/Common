@@ -1,28 +1,40 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>netcoreapp2.2</TargetFramework>
-        <IsPackable>false</IsPackable>
-        <RootNamespace>Polly.Interception.Tests</RootNamespace>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFrameworks>netcoreapp3.1;netcoreapp2.2</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.3" />
-        <PackageReference Include="NSubstitute" Version="4.2.1" />
-        <PackageReference Include="nunit" Version="3.11.0" />
-        <PackageReference Include="NUnit3TestAdapter" Version="3.11.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.9.0" />
-        <PackageReference Include="Polly" Version="7.1.1" />
-        <PackageReference Include="Polly.Caching.Memory" Version="3.0.2" />
-    </ItemGroup>
+  <ItemGroup>    
+    <PackageReference Include="NSubstitute" Version="4.2.1" />
+    <PackageReference Include="nunit" Version="3.11.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.11.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.9.0" />
+    <PackageReference Include="Polly" Version="7.1.1" />
+    <PackageReference Include="Polly.Caching.Memory" Version="3.0.2" />
+    <PackageReference Include="Polly.Caching.Serialization.Json" Version="3.0.0" />
+    <PackageReference Include="Scrutor" Version="3.2.0" />
+  </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\Polly.Interception.Caching\Polly.Interception.Caching.csproj" />
-      <ProjectReference Include="..\Polly.Interception\Polly.Interception.csproj" />
-    </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1'">
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.3" />
+  </ItemGroup>
 
-    <ItemGroup>
-      <Compile Remove="Tests.cs" />
-    </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'netcoreapp3.1'">
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Caching.Interception\Caching.Interception.csproj" />
+    <ProjectReference Include="..\Caching\Caching.csproj" />
+    <ProjectReference Include="..\Polly.Interception.Caching\Polly.Interception.Caching.csproj" />
+    <ProjectReference Include="..\Polly.Interception\Polly.Interception.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Tests.cs" />
+  </ItemGroup>
 
 </Project>

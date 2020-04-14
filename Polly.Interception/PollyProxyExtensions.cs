@@ -34,8 +34,6 @@ namespace Polly.Interception
         private static T Intercept<T>(this IProxyGenerator generator, T instance, IAsyncInterceptor interceptor)
         where T : class
         {
-            generator.CreateInterfaceProxyWithTarget(typeof(T), instance, interceptor);
-            
             return typeof(T).IsInterface 
                 ? generator.CreateInterfaceProxyWithTargetInterface(instance, interceptor) 
                 : generator.CreateClassProxyWithTarget(instance, interceptor);

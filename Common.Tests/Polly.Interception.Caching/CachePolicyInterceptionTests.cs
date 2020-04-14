@@ -1,12 +1,19 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 using NUnit.Framework;
+using Polly;
 using Polly.Caching;
+using Polly.Caching.Distributed;
 using Polly.Caching.Memory;
+using Polly.Caching.Serialization.Json;
 using Polly.Interception.Caching;
+using Polly.Registry;
 
-namespace Polly.Interception.Tests.Polly.Interception.Caching
+namespace Common.Tests.Polly.Interception.Caching
 {
     public class CachePolicyInterceptionTests
     {
@@ -143,81 +150,72 @@ namespace Polly.Interception.Tests.Polly.Interception.Caching
         {
             // Arrange
             
-            var count1 = 0;
-            var count2 = 0;
-            var count3 = 0;
-            var count4 = 0;
-            var dto1 = new Dto();
-            var dto2 = new Dto();
-            var str3 = Guid.NewGuid().ToString();
-            var syncValue4 = Guid.NewGuid().ToString();
-
             var services = new ServiceCollection();
-            services
-                .AddMemoryCache()
-                .AddSingleton<IAsyncCacheProvider, MemoryCacheProvider>()
-                .AddSingleton<ISyncCacheProvider, MemoryCacheProvider>()
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = "localhost"; // or whatever
+                //options.InstanceName = "SampleInstance";
+            });
 
-                .AddSingleton<Func<int, Task<Dto>>>(_ =>
-                {
-                    count1++;
-                    return Task.FromResult(dto1);
-                })
-                .AddSingleton<Func<Task<Dto>>>(() =>
-                {
-                    count2++;
-                    return Task.FromResult(dto2);
-                })
-                .AddSingleton<Func<int, Task<string>>>(_ =>
-                {
-                    count3++;
-                    return Task.FromResult(str3);
-                })
-                .AddSingleton<Func<string>>(() =>
-                {
-                    count4++;
-                    return syncValue4;
-                })
-                .AddSingleton<IService<int, Dto>, DelegatingService<int, Dto>>();
-            
-            var provider = services.BuildServiceProvider();
-            var service = provider.GetRequiredService<IService<int, Dto>>();
-            
-           
-            // Act
-            
-            var result11 = await service.GetAsync(-1);
-            var result12 = await service.GetAsync(-1);
-            
-            var result21 = await service.GetAsync();
-            var result22 = await service.GetAsync();
-            
-            var result31 = await service.GetStringAsync(-1);
-            var result32 = await service.GetStringAsync(-1);
-            
-            var result41 = service.GetString();
-            var result42 = service.GetString();
-           
-            
-            // Assert
-            
-            Assert.AreEqual(1, count1);
-            Assert.AreEqual(result11, result12);
-            Assert.AreEqual(dto1, result11);
-            
-            Assert.AreEqual(1, count2);
-            Assert.AreEqual(result21, result22);
-            Assert.AreEqual(dto2, result21);
-            
-            Assert.AreEqual(1, count3);
-            Assert.AreEqual(result31, result32);
-            Assert.AreEqual(str3, result31);
-            
-            Assert.AreEqual(1, count4);
-            Assert.AreEqual(result41, result42);
-            Assert.AreEqual(syncValue4, result41);
+            // Obtain a Newtonsoft.Json.JsonSerializerSettings defining any settings to use for serialization
+            // (could alternatively be obtained from a factory by DI)
+            var serializerSettings = new JsonSerializerSettings()
+            {
+                // Any configuration options
+            };
 
-            Assert.DoesNotThrow(() => Guid.Parse(result11.Str));
+            // Register a Polly cache provider for caching Dto entities, using the IDistributedCache instance and a Polly.Caching.Serialization.Json.JsonSerializer.
+            // (ICacheItemSerializer<Dto, string> could alternatively be obtained from a factory by DI)
+
+            services.AddSingleton(serviceProvider =>
+                serviceProvider
+                    .GetRequiredService<IDistributedCache>()
+                    .AsAsyncCacheProvider<string>());
+            //
+            // services.AddSingleton(typeof(IAsyncCacheProvider<>), 
+            //     typeof(AsyncSerializingCacheProvider<, string>));
+            
+            services.AddSingleton<IAsyncCacheProvider<Dto>>(serviceProvider =>
+                serviceProvider
+                    .GetRequiredService<IAsyncCacheProvider<string>>()
+                    .WithSerializer<Dto, string>(
+                        new JsonSerializer<Dto>(serializerSettings)
+                    ));
+
+            // Register a Polly cache policy for caching Dto entities, using that IDistributedCache instance.
+            services.AddSingleton<IReadOnlyPolicyRegistry<string>, PolicyRegistry>((serviceProvider) =>
+            {
+                var registry = new PolicyRegistry
+                {
+                    {
+                        "1",
+                        Policy.CacheAsync<Dto>(serviceProvider.GetRequiredService<IAsyncCacheProvider<Dto>>(), TimeSpan.FromMinutes(60))
+                    }
+                };
+
+                return registry;
+            });
+            var p = services.BuildServiceProvider();
+            var reg = p.GetRequiredService<IReadOnlyPolicyRegistry<string>>();
+            var policy = reg.Get<IAsyncPolicy<Dto>>("1");
+            var cnt = 0;
+
+            var sw = Stopwatch.StartNew();
+            var r1 = await policy.ExecuteAsync(ctx =>
+            {
+                cnt++;
+                return Task.FromResult(new Dto());
+            }, new Context("12"));
+            
+            var r2 = await policy.ExecuteAsync(ctx =>
+            {
+                cnt++;
+                return Task.FromResult(new Dto());
+            }, new Context("12"));
+            
+            sw.Stop();
+            Assert.True(cnt < 2);
+            Assert.AreEqual(r1.Id, r2.Id);
         }
         
 

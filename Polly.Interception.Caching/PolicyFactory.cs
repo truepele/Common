@@ -95,13 +95,4 @@ namespace Polly.Interception.Caching
             return $"CachePolicy_{cacheAttribute.ExpirationType.ToString()}_{cacheAttribute.Ttl.TotalSeconds}";
         }
     }
-
-
-    public enum ExpirationType
-    {
-        Unknown = 0,
-        NoExpiration,
-        Relative,
-        Sliding
-    }
 }
