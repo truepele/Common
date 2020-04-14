@@ -3,17 +3,17 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Caching;
 using Caching.Interception;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 
-namespace Common.Tests.Caching.Interception
+namespace Common.Tests.Caching
 {
     [TestFixture]
-    public class CacheInterceptorMemoryIntegrationTests
+    public class CacheInterceptorDistributedIntegrationTests
     {
-
         [Test]
-        public async Task GenericTypeInterceptedCorrectly_MemoryCache()
+        public async Task GenericTypeInterceptedCorrectly_FakeDistributedCache()
         {
             // Arrange
             var count1 = 0;
@@ -26,7 +26,7 @@ namespace Common.Tests.Caching.Interception
             var syncValue4 = Guid.NewGuid().ToString();
             
             var services = new ServiceCollection();
-
+            
             services
                 .AddSingleton<Func<int, Task<Dto>>>(async _ =>
                 {
@@ -52,12 +52,16 @@ namespace Common.Tests.Caching.Interception
                     return syncValue4;
                 })
                 .AddSingleton<IService<int, Dto>, DelegatingService<int, Dto>>()
-                .InterceptWithMemoryCacheByAttribute();
+                .AddLogging()
+                .AddMemoryCache()
+                .AddSingleton<IDistributedCache, FakeDistributedCache>()
+                .AddSingleton<ICache, DistributedCache>()
+                .InterceptWithCacheByAttribute();
 
+          
             var provider = services.BuildServiceProvider();
             var service = provider.GetRequiredService<IService<int, Dto>>();
-            
-            
+
 
             // Act
 

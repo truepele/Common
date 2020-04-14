@@ -4,18 +4,39 @@ using System.Linq;
 using System.Threading.Tasks;
 using Caching;
 using Caching.Interception;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using StackExchange.Redis;
 
-namespace Common.Tests.Caching.Interception
+namespace Common.Tests.Caching
 {
+    [Ignore("Do not run on build")]
     [TestFixture]
-    public class CacheInterceptorDistributedIntegrationTests
+    public class CacheInterceptorRedisIntegrationTests
     {
+        private readonly string _redisConnectionString;
+
+        public CacheInterceptorRedisIntegrationTests()
+        {
+            _redisConnectionString = "localhost:6379";
+        }
+        
+        
+        [TearDown]
+        public async Task TearDown()
+        {
+            var connectionMultiplexer = ConnectionMultiplexer.Connect(_redisConnectionString);
+            var redisDb = connectionMultiplexer.GetDatabase();
+            var server = connectionMultiplexer.GetServer(_redisConnectionString);
+           
+            foreach (var key in server.Keys(pattern: "*DelegatingService*"))
+            {
+                await redisDb.KeyDeleteAsync(key);
+            }
+        }
+
         [Test]
-        public async Task GenericTypeInterceptedCorrectly_FakeDistributedCache()
+        public async Task GenericTypeInterceptedCorrectly_RedisCache()
         {
             // Arrange
             var count1 = 0;
@@ -55,10 +76,11 @@ namespace Common.Tests.Caching.Interception
                 })
                 .AddSingleton<IService<int, Dto>, DelegatingService<int, Dto>>()
                 .AddLogging()
-                .AddMemoryCache()
-                .AddSingleton<IDistributedCache, FakeDistributedCache>()
-                .AddSingleton<ICache, DistributedCache>()
-                .InterceptWithCacheByAttribute();
+                .InterceptWithStackExchangeRedisCacheByAttribute(options =>
+                {
+                    options.Configuration = _redisConnectionString;
+                    options.InstanceName = "myredis";
+                });
 
           
             var provider = services.BuildServiceProvider();
@@ -103,9 +125,11 @@ namespace Common.Tests.Caching.Interception
             Assert.AreEqual(result41, result42);
             Assert.AreEqual(syncValue4, result41);
 
-            await Task.Delay(10);
-            await service.GetAsync(-1);
-            Assert.AreEqual(2, count1);
+            await Task.Delay(1000);
+            var connectionMultiplexer = ConnectionMultiplexer.Connect(_redisConnectionString);
+            var server = connectionMultiplexer.GetServer(_redisConnectionString);
+
+            Assert.AreEqual(2, server.Keys(pattern: "*DelegatingService*").Count());
         }
 
         public class Dto
@@ -140,13 +164,13 @@ namespace Common.Tests.Caching.Interception
                 _syncFunc = syncFunc ?? throw new ArgumentNullException(nameof(syncFunc));
             }
         
-            [Cache(10)]
+            [Cache(1000)]
             public Task<TResult> GetAsync(TParam param)
             {
                 return _func(param);
             }
         
-            [Cache(10, ExpirationType.Sliding)]
+            [Cache(1000, ExpirationType.Sliding)]
             public Task<TResult> GetAsync()
             {
                 return _funcParamless();

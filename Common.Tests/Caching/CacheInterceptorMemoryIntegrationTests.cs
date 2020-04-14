@@ -1,42 +1,19 @@
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
 using Caching;
 using Caching.Interception;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
-using StackExchange.Redis;
 
-namespace Common.Tests.Caching.Interception
+namespace Common.Tests.Caching
 {
-    [Ignore("Do not run on build")]
     [TestFixture]
-    public class CacheInterceptorRedisIntegrationTests
+    public class CacheInterceptorMemoryIntegrationTests
     {
-        private readonly string _redisConnectionString;
-
-        public CacheInterceptorRedisIntegrationTests()
-        {
-            _redisConnectionString = "localhost:6379";
-        }
-        
-        
-        [TearDown]
-        public async Task TearDown()
-        {
-            var connectionMultiplexer = ConnectionMultiplexer.Connect(_redisConnectionString);
-            var redisDb = connectionMultiplexer.GetDatabase();
-            var server = connectionMultiplexer.GetServer(_redisConnectionString);
-           
-            foreach (var key in server.Keys(pattern: "*DelegatingService*"))
-            {
-                await redisDb.KeyDeleteAsync(key);
-            }
-        }
 
         [Test]
-        public async Task GenericTypeInterceptedCorrectly_RedisCache()
+        public async Task GenericTypeInterceptedCorrectly_MemoryCache()
         {
             // Arrange
             var count1 = 0;
@@ -49,7 +26,7 @@ namespace Common.Tests.Caching.Interception
             var syncValue4 = Guid.NewGuid().ToString();
             
             var services = new ServiceCollection();
-            
+
             services
                 .AddSingleton<Func<int, Task<Dto>>>(async _ =>
                 {
@@ -75,17 +52,12 @@ namespace Common.Tests.Caching.Interception
                     return syncValue4;
                 })
                 .AddSingleton<IService<int, Dto>, DelegatingService<int, Dto>>()
-                .AddLogging()
-                .InterceptWithStackExchangeRedisCacheByAttribute(options =>
-                {
-                    options.Configuration = _redisConnectionString;
-                    options.InstanceName = "myredis";
-                });
+                .InterceptWithMemoryCacheByAttribute();
 
-          
             var provider = services.BuildServiceProvider();
             var service = provider.GetRequiredService<IService<int, Dto>>();
-
+            
+            
 
             // Act
 
@@ -125,11 +97,9 @@ namespace Common.Tests.Caching.Interception
             Assert.AreEqual(result41, result42);
             Assert.AreEqual(syncValue4, result41);
 
-            await Task.Delay(1000);
-            var connectionMultiplexer = ConnectionMultiplexer.Connect(_redisConnectionString);
-            var server = connectionMultiplexer.GetServer(_redisConnectionString);
-
-            Assert.AreEqual(2, server.Keys(pattern: "*DelegatingService*").Count());
+            await Task.Delay(10);
+            await service.GetAsync(-1);
+            Assert.AreEqual(2, count1);
         }
 
         public class Dto
@@ -164,13 +134,13 @@ namespace Common.Tests.Caching.Interception
                 _syncFunc = syncFunc ?? throw new ArgumentNullException(nameof(syncFunc));
             }
         
-            [Cache(1000)]
+            [Cache(10)]
             public Task<TResult> GetAsync(TParam param)
             {
                 return _func(param);
             }
         
-            [Cache(1000, ExpirationType.Sliding)]
+            [Cache(10, ExpirationType.Sliding)]
             public Task<TResult> GetAsync()
             {
                 return _funcParamless();

@@ -7,7 +7,7 @@ using Castle.DynamicProxy;
 using NSubstitute;
 using NUnit.Framework;
 
-namespace Common.Tests.Caching.Interception
+namespace Common.Tests.Caching
 {
     [TestFixture]
     public class CacheInterceptorTests

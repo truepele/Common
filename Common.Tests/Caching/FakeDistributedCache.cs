@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace Common.Tests.Caching.Interception
+namespace Common.Tests.Caching
 {
     public class FakeDistributedCache : IDistributedCache
     {
