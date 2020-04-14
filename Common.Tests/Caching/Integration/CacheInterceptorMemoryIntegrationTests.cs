@@ -6,7 +6,7 @@ using Caching.Interception;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 
-namespace Common.Tests.Caching
+namespace Common.Tests.Caching.Integration
 {
     [TestFixture]
     public class CacheInterceptorMemoryIntegrationTests

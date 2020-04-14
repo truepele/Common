@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using StackExchange.Redis;
 
-namespace Common.Tests.Caching
+namespace Common.Tests.Caching.Integration
 {
     [Ignore("Do not run on build")]
     [TestFixture]
