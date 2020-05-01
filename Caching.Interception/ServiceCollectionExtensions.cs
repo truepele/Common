@@ -14,28 +14,101 @@ namespace Caching.Interception
             return services
                 .AddMemoryCache()
                 .AddSingleton<ICache, MemoryCache>()
-                .InterceptWithCacheByAttribute();
+                .InterceptWithCacheByAttribute(_ => { });
+        }
+        
+        public static IServiceCollection InterceptWithMemoryCacheByAttribute(this IServiceCollection services, 
+            Action<CacheInterceptorOptions> configureInterceptorOptions)
+        {
+            return services
+                .AddMemoryCache()
+                .AddSingleton<ICache, MemoryCache>()
+                .InterceptWithCacheByAttribute(configureInterceptorOptions);
+        }
+        
+        public static IServiceCollection InterceptWithMemoryCacheByAttribute(this IServiceCollection services, 
+            Microsoft.Extensions.Configuration.IConfiguration config)
+        {
+            return services
+                .AddMemoryCache()
+                .AddSingleton<ICache, MemoryCache>()
+                .InterceptWithCacheByAttribute(config);
         }
         
         public static IServiceCollection InterceptWithStackExchangeRedisCacheByAttribute(this IServiceCollection services,
             Action<RedisCacheOptions> setupAction)
         {
-            return services.AddStackExchangeRedisCache(setupAction)
+            return services
+                .AddStackExchangeRedisCache(setupAction)
                 .AddSingleton<ICache, DistributedCache>()
                 .InterceptWithCacheByAttribute();
         }
-        
+
+        public static IServiceCollection InterceptWithStackExchangeRedisCacheByAttribute(this IServiceCollection services,
+            Action<RedisCacheOptions> setupAction,
+            Action<CacheInterceptorOptions> configureInterceptorOptions)
+        {
+            return services
+                .AddStackExchangeRedisCache(setupAction)
+                .AddSingleton<ICache, DistributedCache>()
+                .InterceptWithCacheByAttribute(configureInterceptorOptions);
+        }
+
+        public static IServiceCollection InterceptWithStackExchangeRedisCacheByAttribute(this IServiceCollection services,
+            Action<RedisCacheOptions> setupAction,
+            Microsoft.Extensions.Configuration.IConfiguration config)
+        {
+            return services
+                .AddStackExchangeRedisCache(setupAction)
+                .AddSingleton<ICache, DistributedCache>()
+                .InterceptWithCacheByAttribute(config);
+        }
+
         internal static IServiceCollection InterceptWithCacheByAttribute(this IServiceCollection services)
-        { 
-            services.AddMemoryCache()
+        {
+            return services
                 .AddSingleton<IProxyGenerator, ProxyGenerator>()
-                .AddSingleton<CacheInterceptor>();
-            
+                .AddSingleton<CacheInterceptor>()
+                .DecorateWithCacheByAttribute();
+        }
+
+        internal static IServiceCollection InterceptWithCacheByAttribute(this IServiceCollection services, 
+            Action<CacheInterceptorOptions> configureOptions)
+        {
+            return services
+                .Configure(configureOptions)
+                .InterceptWithCacheByAttribute();
+        }
+        
+        internal static IServiceCollection InterceptWithCacheByAttribute(this IServiceCollection services,
+            Microsoft.Extensions.Configuration.IConfiguration config)
+        {
+            return services
+                .Configure<CacheInterceptorOptions>(config)
+                .InterceptWithCacheByAttribute();
+        }
+
+        private static IServiceCollection DecorateWithCacheByAttribute(this IServiceCollection services)
+        {
             var servicesToDecorate = services.Where(d =>
-                    !d.ServiceType.IsGenericTypeDefinition // We do not support open generics
-                    && d.ImplementationType != null // We do not support factory instances
-                    && d.ImplementationType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
-                        .Any(m => m.GetCustomAttribute<CacheAttribute>() != null))
+                {
+                    // We do not support open generics
+                    if (d.ServiceType.IsGenericTypeDefinition)
+                    {
+                        return false;
+                    }
+
+                    // TODO: We do not support factory registrations
+                    var implementationType = d.ImplementationType ?? d.ImplementationInstance.GetType();
+                    if (implementationType == null)
+                    {
+                        return false;
+                    }
+
+                    return implementationType
+                        .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                        .Any(m => m.GetCustomAttribute<CacheAttribute>() != null);
+                })
                 .ToArray();
 
             foreach (var d in servicesToDecorate)

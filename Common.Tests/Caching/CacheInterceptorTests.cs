@@ -1,10 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Caching;
 using Caching.Interception;
-using Castle.DynamicProxy;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using NUnit.Framework;
 
@@ -30,61 +31,103 @@ namespace Common.Tests.Caching
         public class Service : IService
         {
             private readonly string _val;
+            public IDictionary<string, int> ReceivedCalls { get; } = new Dictionary<string, int>();
 
             public Service(string val)
             {
-                if (string.IsNullOrEmpty(val)) throw new ArgumentException("Value cannot be null or empty.", nameof(val));
+                if (string.IsNullOrEmpty(val))
+                {
+                    throw new ArgumentException("Value cannot be null or empty.", nameof(val));
+                }
+
                 _val = val;
             }
             
             public Task DoStuffAsync()
             {
-                throw new NotSupportedException();
+                AddCall(nameof(DoStuffAsync));
+                return Task.Delay(1);
             }
 
             public void DoStuff()
             {
-                throw new NotSupportedException();
+                AddCall(nameof(DoStuff));
             }
 
-            public Task<string> GetStuffNoAttrAsync()
+            public async Task<string> GetStuffNoAttrAsync()
             {
-                return Task.FromResult(_val);
+                AddCall(nameof(GetStuffNoAttrAsync));
+                await Task.Delay(1);
+                return _val;
             }
 
             public string GetStuffNoAttr()
             {
+                AddCall(nameof(GetStuffNoAttr));
                 return _val;
             }
 
             [Cache]
-            public Task<string> GetStuffAsync(CancellationToken cancellationToken)
+            public async Task<string> GetStuffAsync(CancellationToken cancellationToken)
             {
-                return Task.FromResult(_val);
+                AddCall(nameof(GetStuffAsync));
+                await Task.Delay(1);
+                return _val;
             }
 
             [Cache]
             public string GetStuff()
             {
+                AddCall(nameof(GetStuff));
                 return _val;
             }
+
+            private void AddCall(string methodName)
+            {
+                if (ReceivedCalls.TryGetValue(methodName, out var prevValue))
+                {
+                    ReceivedCalls[methodName] = prevValue + 1;
+                }
+                else
+                {
+                    ReceivedCalls[methodName] = 1;
+                }
+            }
+        }
+
+        private static IServiceProvider BuildServiceProvider(ICache cache, Service target, 
+            Action<CacheInterceptorOptions> configureOptions = null)
+        {
+            var services = new ServiceCollection()
+                .AddSingleton(cache)
+                .AddSingleton<IService>(target);
+
+            if (configureOptions != null)
+            {
+                services.InterceptWithCacheByAttribute(configureOptions);
+            }
+            else
+            {
+                services.InterceptWithCacheByAttribute();
+            }
+
+            return services.BuildServiceProvider();
         }
 
         [Test]
         public async Task AsyncVoidMethod_InterceptorCallsTarget()
         {
             // Arrange
+            var target = new Service(Guid.NewGuid().ToString());
             var cache = Substitute.For<ICache>();
-            var target = Substitute.For<IService>();
-            var interceptor = new CacheInterceptor(cache);
-            var generator = new ProxyGenerator();
-            var instance = generator.CreateInterfaceProxyWithTargetInterface(target, interceptor);
+            var serviceProvider = BuildServiceProvider(cache, target);
+            var instance = serviceProvider.GetRequiredService<IService>();
             
             // Act
             await instance.DoStuffAsync();
             
             // Assert
-            await target.Received(1).DoStuffAsync();
+            Assert.AreEqual(1, target.ReceivedCalls[nameof(target.DoStuffAsync)]);
             Assert.IsEmpty(cache.ReceivedCalls());
         }
         
@@ -93,15 +136,12 @@ namespace Common.Tests.Caching
         public async Task AsyncMethodNoAttribute_InterceptorCallsTarget()
         {
             // Arrange
-            var cache = Substitute.For<ICache>();
-
+            
             var val = Guid.NewGuid().ToString();
-            var target = Substitute.For<IService>();
-            target.GetStuffNoAttrAsync().Returns(val);
-                
-            var interceptor = new CacheInterceptor(cache);
-            var generator = new ProxyGenerator();
-            var instance = generator.CreateInterfaceProxyWithTargetInterface(target, interceptor);
+            var cache = Substitute.For<ICache>();
+            var target = new Service(val);
+            var serviceProvider = BuildServiceProvider(cache, target);
+            var instance = serviceProvider.GetRequiredService<IService>();
             
             // Act
             var result = await instance.GetStuffNoAttrAsync();
@@ -117,16 +157,15 @@ namespace Common.Tests.Caching
         {
             // Arrange
             var cache = Substitute.For<ICache>();
-            var target = Substitute.For<IService>();
-            var interceptor = new CacheInterceptor(cache);
-            var generator = new ProxyGenerator();
-            var instance = generator.CreateInterfaceProxyWithTargetInterface(target, interceptor);
+            var target = new Service(Guid.NewGuid().ToString());
+            var serviceProvider = BuildServiceProvider(cache, target);
+            var instance = serviceProvider.GetRequiredService<IService>();
             
             // Act
             instance.DoStuff();
             
             // Assert
-            target.Received(1).DoStuff();
+            Assert.AreEqual(1, target.ReceivedCalls[nameof(target.DoStuff)]);
             Assert.IsEmpty(cache.ReceivedCalls());
         }
         
@@ -135,14 +174,10 @@ namespace Common.Tests.Caching
         {
             // Arrange
             var cache = Substitute.For<ICache>();
-
             var val = Guid.NewGuid().ToString();
-            var target = Substitute.For<IService>();
-            target.GetStuffNoAttr().Returns(val);
-                
-            var interceptor = new CacheInterceptor(cache);
-            var generator = new ProxyGenerator();
-            var instance = generator.CreateInterfaceProxyWithTargetInterface(target, interceptor);
+            var target = new Service(val);
+            var serviceProvider = BuildServiceProvider(cache, target);
+            var instance = serviceProvider.GetRequiredService<IService>();
             
             // Act
             var result = instance.GetStuffNoAttr();
@@ -156,6 +191,7 @@ namespace Common.Tests.Caching
         public void SyncMethod_Intercepted()
         {
             // Arrange
+            
             var cacheValue = Guid.NewGuid().ToString();
             var cache = Substitute.For<ICache>();
             cache.GetOrCreate(Arg.Any<string>(),
@@ -165,11 +201,11 @@ namespace Common.Tests.Caching
                     )
                 .Returns(cacheValue);
 
-            IService target = new Service(Guid.NewGuid().ToString());
+            var target = new Service(Guid.NewGuid().ToString());
                 
-            var interceptor = new CacheInterceptor(cache);
-            var generator = new ProxyGenerator();
-            var instance = generator.CreateInterfaceProxyWithTargetInterface(target, interceptor);
+            var serviceProvider = BuildServiceProvider(cache, target);
+            var instance = serviceProvider.GetRequiredService<IService>();
+           
             
             // Act
             var result1 = instance.GetStuff();
@@ -185,6 +221,7 @@ namespace Common.Tests.Caching
         public async Task AsyncMethod_Intercepted()
         {
             // Arrange
+            
             var cacheValue = Guid.NewGuid().ToString();
             var cache = Substitute.For<ICache>();
             cache.GetOrCreateAsync(Arg.Any<string>(),
@@ -193,11 +230,11 @@ namespace Common.Tests.Caching
                 )
                 .Returns(cacheValue);
 
-            IService target = new Service(Guid.NewGuid().ToString());
+            var target = new Service(Guid.NewGuid().ToString());
                 
-            var interceptor = new CacheInterceptor(cache);
-            var generator = new ProxyGenerator();
-            var instance = generator.CreateInterfaceProxyWithTargetInterface(target, interceptor);
+            var serviceProvider = BuildServiceProvider(cache, target);
+            var instance = serviceProvider.GetRequiredService<IService>();
+            
             
             // Act
             var result1 = await instance.GetStuffAsync(CancellationToken.None);
@@ -207,6 +244,47 @@ namespace Common.Tests.Caching
             Assert.AreEqual(2, cache.ReceivedCalls().Count());
             Assert.AreEqual(result1, result2);
             Assert.AreEqual(cacheValue, result1);
+        }
+        
+        
+        [TestCase(ExpirationType.Relative, 1)]
+        [TestCase(ExpirationType.Relative, 2)]
+        [TestCase(ExpirationType.Sliding, 3)]
+        [TestCase(ExpirationType.Sliding, 4)]
+        public async Task CacheInterceptorOptionsConfigured(ExpirationType expirationType, int seconds)
+        {
+            // Arrange
+            var cacheValue = Guid.NewGuid().ToString();
+            var cache = Substitute.For<ICache>();
+            cache.GetOrCreateAsync(Arg.Any<string>(),
+                    Arg.Any<CacheEntryOptions>(),
+                    Arg.Any<Func<string, Task<string>>>()
+                )
+                .Returns(cacheValue);
+
+            var target = new Service(Guid.NewGuid().ToString());
+                
+            var serviceProvider = BuildServiceProvider(cache, target,
+                o =>
+                {
+                    o.DefaultTtl = TimeSpan.FromSeconds(seconds);
+                    o.DefaultExpirationType = expirationType;
+                });
+            var instance = serviceProvider.GetRequiredService<IService>();
+            
+            
+            // Act
+            var result = await instance.GetStuffAsync(CancellationToken.None);
+            
+            // Assert
+            await cache.Received(1).GetOrCreateAsync(Arg.Any<string>(),
+                Arg.Is<CacheEntryOptions>(o =>
+                    o.Type == expirationType
+                    && expirationType == ExpirationType.Relative
+                        ? o.ToDistributedCacheEntryOptions().AbsoluteExpirationRelativeToNow.Value.TotalSeconds == seconds
+                        : o.ToDistributedCacheEntryOptions().SlidingExpiration.Value.TotalSeconds == seconds),
+                Arg.Any<Func<string, Task<string>>>(),
+                Arg.Any<CancellationToken>());
         }
     }
 }

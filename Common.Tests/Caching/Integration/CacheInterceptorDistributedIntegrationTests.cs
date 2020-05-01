@@ -26,7 +26,7 @@ namespace Common.Tests.Caching
             var syncValue4 = Guid.NewGuid().ToString();
             
             var services = new ServiceCollection();
-            
+
             services
                 .AddSingleton<Func<int, Task<Dto>>>(async _ =>
                 {

@@ -1,18 +1,22 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Castle.DynamicProxy;
+using Microsoft.Extensions.Options;
 
 namespace Caching.Interception
 {
     public class CacheInterceptor : IAsyncInterceptor
     {
         private readonly ICache _cache;
+        private readonly CacheInterceptorOptions _options;
 
-        public CacheInterceptor(ICache cache)
+        public CacheInterceptor(ICache cache, IOptions<CacheInterceptorOptions> options = null)
         {
-            _cache = cache;
+            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+            _options = options?.Value ?? new CacheInterceptorOptions();
         }
         
 
@@ -62,7 +66,7 @@ namespace Caching.Interception
                 (CancellationToken?)cancellationArg ?? default);
         }
         
-        private static bool TryGetCacheEntryOptions(IInvocation invocation, out CacheEntryOptions cacheEntryOptions)
+        private bool TryGetCacheEntryOptions(IInvocation invocation, out CacheEntryOptions cacheEntryOptions)
         {
             cacheEntryOptions = null;
 
@@ -72,7 +76,9 @@ namespace Caching.Interception
                 return false;
             }
 
-            cacheEntryOptions = cacheAttribute.CacheEntryOptions;
+            cacheEntryOptions = cacheAttribute.ExpirationType == null 
+                ? new CacheEntryOptions(_options.DefaultTtl, _options.DefaultExpirationType) 
+                : new CacheEntryOptions(cacheAttribute.Ttl, cacheAttribute.ExpirationType.Value);
 
             return true;
         }

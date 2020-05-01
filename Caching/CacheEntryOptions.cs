@@ -7,7 +7,6 @@ namespace Caching
     public class CacheEntryOptions
     {
         private readonly TimeSpan _ttl;
-        
 
         public CacheEntryOptions(TimeSpan ttl, ExpirationType type = ExpirationType.Relative)
         {

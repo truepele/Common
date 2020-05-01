@@ -5,19 +5,18 @@ namespace Caching
     [AttributeUsage(AttributeTargets.Method)]
     public class CacheAttribute : Attribute
     {
+        public ExpirationType? ExpirationType { get; }
+        public TimeSpan Ttl { get; }
+        
+        
         public CacheAttribute()
         {
-            CacheEntryOptions = new CacheEntryOptions(TimeSpan.MaxValue, ExpirationType.NoExpiration);
         }
         
-
-        public CacheAttribute(double ttlMs, ExpirationType expirationType = ExpirationType.Relative)
+        public CacheAttribute(double ttlMs, ExpirationType expirationType = Caching.ExpirationType.Relative)
         {
-            var ttl = TimeSpan.FromMilliseconds(ttlMs);
-            CacheEntryOptions = new CacheEntryOptions(ttl, expirationType);
+            Ttl = TimeSpan.FromMilliseconds(ttlMs);
+            ExpirationType = expirationType;
         }
-
-
-        public CacheEntryOptions CacheEntryOptions { get; }
     }
 }
