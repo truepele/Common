@@ -53,6 +53,7 @@ namespace Common.Tests.Caching.Integration
                     return syncValue4;
                 })
                 .AddSingleton<IService<int, Dto>, DelegatingService<int, Dto>>()
+                .AddMemoryCache()
                 .InterceptWithMemoryCacheByAttribute();
 
             var provider = services.BuildServiceProvider();

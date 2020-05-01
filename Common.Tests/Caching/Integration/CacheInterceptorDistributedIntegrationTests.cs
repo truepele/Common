@@ -55,8 +55,7 @@ namespace Common.Tests.Caching
                 .AddLogging()
                 .AddMemoryCache()
                 .AddSingleton<IDistributedCache, FakeDistributedCache>()
-                .AddSingleton<ICache, DistributedCache>()
-                .InterceptWithCacheByAttribute();
+                .InterceptWithDistributedCacheByAttribute();
 
           
             var provider = services.BuildServiceProvider();

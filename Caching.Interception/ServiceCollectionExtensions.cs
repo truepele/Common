@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Castle.DynamicProxy;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Caching.Interception
@@ -12,7 +11,6 @@ namespace Caching.Interception
         public static IServiceCollection InterceptWithMemoryCacheByAttribute(this IServiceCollection services)
         {
             return services
-                .AddMemoryCache()
                 .AddSingleton<ICache, MemoryCache>()
                 .InterceptWithCacheByAttribute(_ => { });
         }
@@ -21,7 +19,6 @@ namespace Caching.Interception
             Action<CacheInterceptorOptions> configureInterceptorOptions)
         {
             return services
-                .AddMemoryCache()
                 .AddSingleton<ICache, MemoryCache>()
                 .InterceptWithCacheByAttribute(configureInterceptorOptions);
         }
@@ -30,36 +27,29 @@ namespace Caching.Interception
             Microsoft.Extensions.Configuration.IConfiguration config)
         {
             return services
-                .AddMemoryCache()
                 .AddSingleton<ICache, MemoryCache>()
                 .InterceptWithCacheByAttribute(config);
         }
         
-        public static IServiceCollection InterceptWithStackExchangeRedisCacheByAttribute(this IServiceCollection services,
-            Action<RedisCacheOptions> setupAction)
+        public static IServiceCollection InterceptWithDistributedCacheByAttribute(this IServiceCollection services)
         {
             return services
-                .AddStackExchangeRedisCache(setupAction)
                 .AddSingleton<ICache, DistributedCache>()
                 .InterceptWithCacheByAttribute();
         }
 
-        public static IServiceCollection InterceptWithStackExchangeRedisCacheByAttribute(this IServiceCollection services,
-            Action<RedisCacheOptions> setupAction,
+        public static IServiceCollection InterceptWithDistributedCacheByAttribute(this IServiceCollection services,
             Action<CacheInterceptorOptions> configureInterceptorOptions)
         {
             return services
-                .AddStackExchangeRedisCache(setupAction)
                 .AddSingleton<ICache, DistributedCache>()
                 .InterceptWithCacheByAttribute(configureInterceptorOptions);
         }
 
-        public static IServiceCollection InterceptWithStackExchangeRedisCacheByAttribute(this IServiceCollection services,
-            Action<RedisCacheOptions> setupAction,
+        public static IServiceCollection InterceptWithDistributedCacheByAttribute(this IServiceCollection services,
             Microsoft.Extensions.Configuration.IConfiguration config)
         {
             return services
-                .AddStackExchangeRedisCache(setupAction)
                 .AddSingleton<ICache, DistributedCache>()
                 .InterceptWithCacheByAttribute(config);
         }

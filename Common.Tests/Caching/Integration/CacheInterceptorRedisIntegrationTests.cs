@@ -76,11 +76,12 @@ namespace Common.Tests.Caching.Integration
                 })
                 .AddSingleton<IService<int, Dto>, DelegatingService<int, Dto>>()
                 .AddLogging()
-                .InterceptWithStackExchangeRedisCacheByAttribute(options =>
+                .AddStackExchangeRedisCache(options =>
                 {
                     options.Configuration = _redisConnectionString;
                     options.InstanceName = "myredis";
-                });
+                })
+                .InterceptWithDistributedCacheByAttribute();
 
           
             var provider = services.BuildServiceProvider();
