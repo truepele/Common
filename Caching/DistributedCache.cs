@@ -27,7 +27,6 @@ namespace Caching
         public object Get(string key, Type type)
         {
             var strValue = _distributedCache.GetString(key);
-
             return string.IsNullOrEmpty(strValue) 
                 ? default 
                 : JsonConvert.DeserializeObject(strValue, type, _jsonSerializerSettings);
@@ -36,7 +35,6 @@ namespace Caching
         public TValue Get<TValue>(string key)
         {
             var strValue = _distributedCache.GetString(key);
-
             return string.IsNullOrEmpty(strValue) 
                 ? default 
                 : JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
@@ -45,7 +43,6 @@ namespace Caching
         public async Task<TValue> GetAsync<TValue>(string key, CancellationToken cancellation = default)
         {
             var strValue = await _distributedCache.GetStringAsync(key, token: cancellation);
-
             return string.IsNullOrEmpty(strValue) 
                 ? default 
                 : JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
@@ -53,18 +50,10 @@ namespace Caching
 
         public TValue GetOrCreate<TValue>(string key, CacheEntryOptions options, Func<string, TValue> factory)
         {
-            try
+            var strValue = _distributedCache.GetString(key);
+            if (!string.IsNullOrEmpty(strValue) && TryDeserialize<TValue>(key, strValue, out var result))
             {
-                var strValue = _distributedCache.GetString(key);
-                if (!string.IsNullOrEmpty(strValue))
-                {
-                    return JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
-                }
-            }
-            catch (JsonException e)
-            {
-                _logger.LogError(e, 
-                    $"Failed on deserialization of string from distributed cache. Key: {key}, Expected Type: {typeof(TValue)} ");
+                return result;
             }
 
             var value = factory(key);
@@ -75,18 +64,10 @@ namespace Caching
 
         public object GetOrCreate(string key, Type type, CacheEntryOptions options, Func<string, object> factory)
         {
-            try
+            var strValue = _distributedCache.GetString(key);
+            if (!string.IsNullOrEmpty(strValue) && TryDeserialize(key, type, strValue, out var result))
             {
-                var strValue = _distributedCache.GetString(key);
-                if (!string.IsNullOrEmpty(strValue))
-                {
-                    return JsonConvert.DeserializeObject(strValue, type, _jsonSerializerSettings);
-                }
-            }
-            catch (JsonException e)
-            {
-                _logger.LogError(e, 
-                    $"Failed on deserialization of string from distributed cache. Key: {key}, Expected Type: {type} ");
+                return result;
             }
 
             var value = factory(key);
@@ -95,8 +76,8 @@ namespace Caching
             return value;
         }
 
-        public async Task<TValue> GetOrCreateAsync<TValue>(string key, 
-            CacheEntryOptions options, 
+        public async Task<TValue> GetOrCreateAsync<TValue>(string key,
+            CacheEntryOptions options,
             Func<string, Task<TValue>> factory,
             CancellationToken cancellation = default)
         {
@@ -105,18 +86,10 @@ namespace Caching
                 throw new ArgumentNullException(nameof(options));
             }
 
-            try
+            var strValue = await _distributedCache.GetStringAsync(key, cancellation);
+            if (!string.IsNullOrEmpty(strValue) && TryDeserialize(key, strValue, out TValue result))
             {
-                var strValue = await _distributedCache.GetStringAsync(key, cancellation);
-                if (!string.IsNullOrEmpty(strValue))
-                {
-                    return JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
-                }
-            }
-            catch (JsonException e)
-            {
-                _logger.LogError(e, 
-                    $"Failed on deserialization of string from distributed cache. Key: {key}, Expected Type: {typeof(TValue)} ");
+                return result;
             }
 
             var value = await factory(key).ConfigureAwait(false);
@@ -142,10 +115,46 @@ namespace Caching
         public Task SetAsync<TValue>(string key, TValue value, CacheEntryOptions options = null, CancellationToken cancellation = default)
         {
             var strValue = JsonConvert.SerializeObject(value, _jsonSerializerSettings);
-
             return options.Type == ExpirationType.NoExpiration 
                 ? _distributedCache.SetStringAsync(key, strValue, cancellation) 
                 : _distributedCache.SetStringAsync(key, strValue, options.ToDistributedCacheEntryOptions(), cancellation);
+        }
+        
+        
+        private bool TryDeserialize(string key, Type type, string strValue, out object result)
+        {
+            result = null;
+
+            try
+            {
+                result = JsonConvert.DeserializeObject(strValue, type, _jsonSerializerSettings);
+                return true;
+            }
+            catch (JsonException e)
+            {
+                _logger.LogError(e,
+                    $"Failed on deserialization of string from distributed cache. Key: {key}, Expected Type: {type} ");
+            }
+
+            return false;
+        }
+        
+        private bool TryDeserialize<TValue>(string key, string strValue, out TValue result)
+        {
+            result = default;
+            
+            try
+            {
+                result = JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
+                return true;
+            }
+            catch (JsonException e)
+            {
+                _logger.LogError(e,
+                    $"Failed on deserialization of string from distributed cache. Key: {key}, Expected Type: {typeof(TValue)} ");
+            }
+
+            return false;
         }
     }
 }
