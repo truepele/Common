@@ -36,6 +36,18 @@ namespace Caching
             return _memoryCache.Get<TValue>(key);
         }
 
+        public bool GetIfCached<TValue>(string key, out TValue value)
+        {
+            return _memoryCache.TryGetValue(key, out value);
+        }
+
+        public Task<(bool wasInCache, TValue value)> GetIfCachedAsync<TValue>(string key, CancellationToken cancellation)
+        {
+            return Task.FromResult(_memoryCache.TryGetValue<TValue>(key, out var value) 
+                ? (true, value) 
+                : (false, default(TValue)));
+        }
+
         public Task<TValue> GetAsync<TValue>(string key, CancellationToken cancellation = default)
         {
             return Task.FromResult(_memoryCache.Get<TValue>(key));

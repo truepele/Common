@@ -9,6 +9,10 @@ namespace Caching
         object Get(string key, Type type);
         
         TValue Get<TValue>(string key);
+
+        bool GetIfCached<TValue>(string key, out TValue value);
+
+        Task<(bool wasInCache, TValue value)> GetIfCachedAsync<TValue>(string key, CancellationToken cancellation = default);
         
         Task<TValue> GetAsync<TValue>(string key, CancellationToken cancellation = default);
         

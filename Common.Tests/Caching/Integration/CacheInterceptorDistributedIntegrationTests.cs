@@ -1,13 +1,18 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Caching;
 using Caching.Interception;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using NUnit.Framework;
 
-namespace Common.Tests.Caching
+namespace Common.Tests.Caching.Integration
 {
     [TestFixture]
     public class CacheInterceptorDistributedIntegrationTests
@@ -96,13 +101,95 @@ namespace Common.Tests.Caching
             Assert.AreEqual(result31, result32);
             Assert.AreEqual(str3, result31);
             
-            Assert.True(count4 == 1);
+            Assert.AreEqual(1, count4);
             Assert.AreEqual(result41, result42);
             Assert.AreEqual(syncValue4, result41);
 
-            await Task.Delay(10);
+            await Task.Delay(50);
             await service.GetAsync(-1);
             Assert.AreEqual(2, count1);
+        }
+        
+        [Test]
+        public async Task Interceptor_DoesNotThrowCacheException()
+        {
+            // Arrange
+            var count1 = 0;
+            var count2 = 0;
+            var count3 = 0;
+            var count4 = 0;
+            var dto1 = new Dto();
+            var dto2 = new Dto();
+            var str3 = Guid.NewGuid().ToString();
+            var syncValue4 = Guid.NewGuid().ToString();
+
+            var faultyCache = Substitute.For<IDistributedCache>();
+            faultyCache.Get(Arg.Any<string>()).Throws(new Exception());
+            faultyCache.GetAsync(Arg.Any<string>()).Throws(new Exception());
+            faultyCache.When(c => c.Refresh(Arg.Any<string>()))
+                .Do(_ => new Exception());
+            faultyCache.RefreshAsync(Arg.Any<string>()).Throws(new Exception());
+            faultyCache.When(c => c.Set(Arg.Any<string>(), 
+                Arg.Any<byte[]>(), 
+                Arg.Any<DistributedCacheEntryOptions>())).Do(_ => throw new Exception());
+            faultyCache.SetAsync(Arg.Any<string>(),
+                Arg.Any<byte[]>(),
+                Arg.Any<DistributedCacheEntryOptions>(),
+                Arg.Any<CancellationToken>()).Throws(new Exception());
+
+            var logger = Substitute.For<ILogger<ExceptionHandlingCacheDecorator>>();
+
+            var services = new ServiceCollection();
+
+            services
+                .AddSingleton<Func<int, Task<Dto>>>(async _ =>
+                {
+                    count1++;
+                    await Task.Delay(1);
+                    return dto1;
+                })
+                .AddSingleton<Func<Task<Dto>>>(async () =>
+                {
+                    count2++;
+                    await Task.Delay(1);
+                    return dto2;
+                })
+                .AddSingleton<Func<int, Task<string>>>(async _ =>
+                {
+                    count3++;
+                    await Task.Delay(1);
+                    return str3;
+                })
+                .AddSingleton<Func<string>>(() =>
+                {
+                    count4++;
+                    return syncValue4;
+                })
+                .AddSingleton<IService<int, Dto>, DelegatingService<int, Dto>>()
+                .AddLogging()
+                .AddSingleton(logger)
+                .AddMemoryCache()
+                .AddSingleton(faultyCache)
+                .InterceptWithDistributedCacheByAttribute();
+
+          
+            var provider = services.BuildServiceProvider();
+            var service = provider.GetRequiredService<IService<int, Dto>>();
+
+
+            // Act
+            var result1 = await service.GetAsync(-1);
+            var result2 = await service.GetAsync();
+            var result3 = await service.GetStringAsync(-1);
+            var result4 = service.GetString();
+            
+            
+            // Assert
+            Assert.AreEqual(dto1, result1);
+            Assert.AreEqual(dto2, result2);
+            Assert.AreEqual(str3, result3);
+            Assert.AreEqual(syncValue4, result4);
+            Assert.AreEqual(8, logger.ReceivedCalls().Count());
         }
 
         public class Dto
@@ -137,13 +224,13 @@ namespace Common.Tests.Caching
                 _syncFunc = syncFunc ?? throw new ArgumentNullException(nameof(syncFunc));
             }
         
-            [Cache(10)]
+            [Cache(50)]
             public Task<TResult> GetAsync(TParam param)
             {
                 return _func(param);
             }
         
-            [Cache(10, ExpirationType.Sliding)]
+            [Cache(50, ExpirationType.Sliding)]
             public Task<TResult> GetAsync()
             {
                 return _funcParamless();
@@ -155,7 +242,7 @@ namespace Common.Tests.Caching
                 return _funcStr(param);
             }
             
-            [Cache(-1, ExpirationType.NoExpiration)]
+            [Cache]
             public string GetString()
             {
                 return _syncFunc();

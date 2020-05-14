@@ -47,6 +47,34 @@ namespace Caching
                 ? default 
                 : JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
         }
+        
+        public bool GetIfCached<TValue>(string key, out TValue result)
+        {
+            var strValue = _distributedCache.GetString(key);
+            result = default;
+
+            if (string.IsNullOrEmpty(strValue))
+            {
+                return false;
+            }
+
+            result = JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
+            return true;
+        }
+
+        public async Task<(bool wasInCache, TValue value)> GetIfCachedAsync<TValue>(string key, CancellationToken cancellation = default)
+        {
+            var strValue = await _distributedCache.GetStringAsync(key, token: cancellation);
+            
+            if (string.IsNullOrEmpty(strValue))
+            {
+                return (false, default);
+            }
+
+            var value = JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
+            return (true, value);
+        }
+
 
         public TValue GetOrCreate<TValue>(string key, CacheEntryOptions options, Func<string, TValue> factory)
         {
@@ -65,9 +93,11 @@ namespace Caching
         public object GetOrCreate(string key, Type type, CacheEntryOptions options, Func<string, object> factory)
         {
             var strValue = _distributedCache.GetString(key);
-            if (!string.IsNullOrEmpty(strValue) && TryDeserialize(key, type, strValue, out var result))
+            if (!string.IsNullOrEmpty(strValue) 
+                && TryDeserialize(key, type, strValue, out var cachedValue)
+                && cachedValue != null)
             {
-                return result;
+                return cachedValue;
             }
 
             var value = factory(key);

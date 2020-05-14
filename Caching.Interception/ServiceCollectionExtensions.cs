@@ -34,7 +34,7 @@ namespace Caching.Interception
         public static IServiceCollection InterceptWithDistributedCacheByAttribute(this IServiceCollection services)
         {
             return services
-                .AddSingleton<ICache, DistributedCache>()
+                .AddDistributedCacheWithErrorHandling()
                 .InterceptWithCacheByAttribute();
         }
 
@@ -42,7 +42,7 @@ namespace Caching.Interception
             Action<CacheInterceptorOptions> configureInterceptorOptions)
         {
             return services
-                .AddSingleton<ICache, DistributedCache>()
+                .AddDistributedCacheWithErrorHandling()
                 .InterceptWithCacheByAttribute(configureInterceptorOptions);
         }
 
@@ -50,7 +50,7 @@ namespace Caching.Interception
             Microsoft.Extensions.Configuration.IConfiguration config)
         {
             return services
-                .AddSingleton<ICache, DistributedCache>()
+                .AddDistributedCacheWithErrorHandling()
                 .InterceptWithCacheByAttribute(config);
         }
 
@@ -89,7 +89,7 @@ namespace Caching.Interception
                     }
 
                     // TODO: We do not support factory registrations
-                    var implementationType = d.ImplementationType ?? d.ImplementationInstance.GetType();
+                    var implementationType = d.ImplementationType ?? d.ImplementationInstance?.GetType();
                     if (implementationType == null)
                     {
                         return false;
@@ -114,6 +114,12 @@ namespace Caching.Interception
             }
 
             return services;
+        }
+
+        private static IServiceCollection AddDistributedCacheWithErrorHandling(this IServiceCollection services)
+        {
+            return services.AddSingleton<ICache, DistributedCache>()
+                .Decorate<ICache, ExceptionHandlingCacheDecorator>();
         }
     }
 }

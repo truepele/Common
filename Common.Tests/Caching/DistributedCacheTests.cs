@@ -12,7 +12,23 @@ namespace Common.Tests.Caching
     [TestFixture]
     public class DistributedCacheTests
     {
-        // Json exceptions
+        [Test]
+        public void Get_DoesNotThrow_WhenNoCachedValueForValueType()
+        {
+            // Arrange
+            var key = Guid.NewGuid().ToString();
+            var msDistributedCache = Substitute.For<IDistributedCache>();
+            msDistributedCache.Get(key).Returns((byte[])null);
+            const int expectedValue = default(int);
+            var sut = new DistributedCache(msDistributedCache, Substitute.For<ILogger<DistributedCache>>());
+            
+            // Act
+            var result = sut.Get<int>(key);
+            
+            // Assert
+            Assert.AreEqual(expectedValue, result);
+        }
+        
         [Test]
         public void GetOrCreateGeneric_DoesNotThrowJsonException()
         {
