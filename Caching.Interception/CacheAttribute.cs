@@ -1,6 +1,6 @@
 using System;
 
-namespace Caching
+namespace Caching.Interception
 {
     [AttributeUsage(AttributeTargets.Method)]
     public class CacheAttribute : Attribute
