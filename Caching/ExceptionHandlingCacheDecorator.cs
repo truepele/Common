@@ -63,7 +63,7 @@ namespace Caching
         {
             try
             {
-                return await _cacheImplementation.GetIfCachedAsync<TValue>(key, cancellation);
+                return await _cacheImplementation.GetIfCachedAsync<TValue>(key, cancellation).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -76,7 +76,7 @@ namespace Caching
         {
             try
             {
-                return await _cacheImplementation.GetAsync<TValue>(key, cancellation);
+                return await _cacheImplementation.GetAsync<TValue>(key, cancellation).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -123,15 +123,15 @@ namespace Caching
 
         public async Task<TValue> GetOrCreateAsync<TValue>(string key, CacheEntryOptions options, Func<string, Task<TValue>> factory, CancellationToken cancellation = default)
         {
-            (bool wasInCache, TValue value) = await GetIfCachedAsync<TValue>(key, cancellation);
+            (bool wasInCache, TValue value) = await GetIfCachedAsync<TValue>(key, cancellation).ConfigureAwait(false);
 
             if (wasInCache)
             {
                 return value;
             }
 
-            value = await factory(key); 
-            await SetAsync(key, value, options, cancellation);
+            value = await factory(key).ConfigureAwait(false); 
+            await SetAsync(key, value, options, cancellation).ConfigureAwait(false);
 
             return value;
         }
@@ -152,7 +152,7 @@ namespace Caching
         {
             try
             {
-                await _cacheImplementation.SetAsync(key, value, options, cancellation);
+                await _cacheImplementation.SetAsync(key, value, options, cancellation).ConfigureAwait(false);
             }
             catch (Exception e)
             {
