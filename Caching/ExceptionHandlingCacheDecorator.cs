@@ -87,7 +87,7 @@ namespace Caching
 
         public TValue GetOrCreate<TValue>(string key, CacheEntryOptions options, Func<string, TValue> factory)
         {
-            if (_cacheImplementation.GetIfCached<TValue>(key, out var value))
+            if (GetIfCached<TValue>(key, out var value))
             {
                 return value;
             }

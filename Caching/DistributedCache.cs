@@ -42,7 +42,7 @@ namespace Caching
 
         public async Task<TValue> GetAsync<TValue>(string key, CancellationToken cancellation = default)
         {
-            var strValue = await _distributedCache.GetStringAsync(key, token: cancellation);
+            var strValue = await _distributedCache.GetStringAsync(key, token: cancellation).ConfigureAwait(false);
             return string.IsNullOrEmpty(strValue) 
                 ? default 
                 : JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
@@ -64,7 +64,7 @@ namespace Caching
 
         public async Task<(bool wasInCache, TValue value)> GetIfCachedAsync<TValue>(string key, CancellationToken cancellation = default)
         {
-            var strValue = await _distributedCache.GetStringAsync(key, token: cancellation);
+            var strValue = await _distributedCache.GetStringAsync(key, token: cancellation).ConfigureAwait(false);
             
             if (string.IsNullOrEmpty(strValue))
             {
@@ -78,13 +78,12 @@ namespace Caching
 
         public TValue GetOrCreate<TValue>(string key, CacheEntryOptions options, Func<string, TValue> factory)
         {
-            var strValue = _distributedCache.GetString(key);
-            if (!string.IsNullOrEmpty(strValue) && TryDeserialize<TValue>(key, strValue, out var result))
+            if (GetIfCached(key, out TValue value))
             {
-                return result;
+                return value;
             }
 
-            var value = factory(key);
+            value = factory(key);
             Set(key, value, options);
 
             return value;
@@ -93,11 +92,9 @@ namespace Caching
         public object GetOrCreate(string key, Type type, CacheEntryOptions options, Func<string, object> factory)
         {
             var strValue = _distributedCache.GetString(key);
-            if (!string.IsNullOrEmpty(strValue) 
-                && TryDeserialize(key, type, strValue, out var cachedValue)
-                && cachedValue != null)
+            if (!string.IsNullOrEmpty(strValue))
             {
-                return cachedValue;
+                return JsonConvert.DeserializeObject(strValue, type, _jsonSerializerSettings);
             }
 
             var value = factory(key);
@@ -111,18 +108,13 @@ namespace Caching
             Func<string, Task<TValue>> factory,
             CancellationToken cancellation = default)
         {
-            if (options == null)
+            (bool wasInCache, TValue value) = await GetIfCachedAsync<TValue>(key, cancellation).ConfigureAwait(false);
+            if (wasInCache)
             {
-                throw new ArgumentNullException(nameof(options));
+                return value;
             }
 
-            var strValue = await _distributedCache.GetStringAsync(key, cancellation);
-            if (!string.IsNullOrEmpty(strValue) && TryDeserialize(key, strValue, out TValue result))
-            {
-                return result;
-            }
-
-            var value = await factory(key).ConfigureAwait(false);
+            value = await factory(key).ConfigureAwait(false);
             await SetAsync(key, value, options, cancellation).ConfigureAwait(false);
 
             return value;
@@ -138,7 +130,7 @@ namespace Caching
             }
             else
             {
-                _distributedCache.SetString(key, strValue, options.ToDistributedCacheEntryOptions());
+                _distributedCache.SetString(key, strValue, MapCacheEntryOptions(options));
             }
         }
 
@@ -147,44 +139,28 @@ namespace Caching
             var strValue = JsonConvert.SerializeObject(value, _jsonSerializerSettings);
             return options.Type == ExpirationType.NoExpiration 
                 ? _distributedCache.SetStringAsync(key, strValue, cancellation) 
-                : _distributedCache.SetStringAsync(key, strValue, options.ToDistributedCacheEntryOptions(), cancellation);
+                : _distributedCache.SetStringAsync(key, strValue, MapCacheEntryOptions(options), cancellation);
         }
-        
-        
-        private bool TryDeserialize(string key, Type type, string strValue, out object result)
+
+        private static DistributedCacheEntryOptions MapCacheEntryOptions(CacheEntryOptions options)
         {
-            result = null;
-
-            try
+            var distributedCacheOptions = new DistributedCacheEntryOptions();
+            switch (options.Type)
             {
-                result = JsonConvert.DeserializeObject(strValue, type, _jsonSerializerSettings);
-                return true;
-            }
-            catch (JsonException e)
-            {
-                _logger.LogError(e,
-                    $"Failed on deserialization of string from distributed cache. Key: {key}, Expected Type: {type} ");
-            }
-
-            return false;
-        }
-        
-        private bool TryDeserialize<TValue>(string key, string strValue, out TValue result)
-        {
-            result = default;
-            
-            try
-            {
-                result = JsonConvert.DeserializeObject<TValue>(strValue, _jsonSerializerSettings);
-                return true;
-            }
-            catch (JsonException e)
-            {
-                _logger.LogError(e,
-                    $"Failed on deserialization of string from distributed cache. Key: {key}, Expected Type: {typeof(TValue)} ");
+                case ExpirationType.NoExpiration:
+                    distributedCacheOptions.SetAbsoluteExpiration(TimeSpan.MinValue);
+                    break;
+                case ExpirationType.Relative:
+                    distributedCacheOptions.SetAbsoluteExpiration(options.Ttl);
+                    break;
+                case ExpirationType.Sliding:
+                    distributedCacheOptions.SetSlidingExpiration(options.Ttl);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
 
-            return false;
+            return distributedCacheOptions;
         }
     }
 }

@@ -280,9 +280,7 @@ namespace Common.Tests.Caching
             await cache.Received(1).GetOrCreateAsync(Arg.Any<string>(),
                 Arg.Is<CacheEntryOptions>(o =>
                     o.Type == expirationType
-                    && expirationType == ExpirationType.Relative
-                        ? o.ToDistributedCacheEntryOptions().AbsoluteExpirationRelativeToNow.Value.TotalSeconds == seconds
-                        : o.ToDistributedCacheEntryOptions().SlidingExpiration.Value.TotalSeconds == seconds),
+                    && o.Ttl.TotalSeconds == seconds),
                 Arg.Any<Func<string, Task<string>>>(),
                 Arg.Any<CancellationToken>());
         }

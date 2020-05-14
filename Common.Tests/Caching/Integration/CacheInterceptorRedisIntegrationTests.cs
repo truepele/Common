@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Caching;
 using Caching.Interception;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using StackExchange.Redis;
@@ -132,6 +133,46 @@ namespace Common.Tests.Caching.Integration
 
             Assert.AreEqual(2, server.Keys(pattern: "*DelegatingService*").Count());
         }
+        
+        [Test]
+        public async Task Interceptor_DoesNotThrowSerializationException()
+        {
+            // Arrange
+            var dto1 = new Dto();
+            
+            var services = new ServiceCollection();
+            
+            services
+                .AddSingleton<Func<int, Task<Dto>>>(async _ =>
+                {
+                    await Task.Delay(1);
+                    return dto1;
+                })
+                .AddSingleton<IService<int, Dto>, DelegatingService<int, Dto>>()
+                .AddLogging()
+                .AddStackExchangeRedisCache(options =>
+                {
+                    options.Configuration = _redisConnectionString;
+                    options.InstanceName = "myredis";
+                })
+                .InterceptWithDistributedCacheByAttribute();
+
+            var provider = services.BuildServiceProvider();
+
+            var redisCache = provider.GetRequiredService<IDistributedCache>();
+            redisCache.SetString(
+                "System.Threading.Tasks.Task`1[Common.Tests.Caching.Integration.CacheInterceptorRedisIntegrationTests+Dto] | Common.Tests.Caching.Integration.DelegatingService`2.GetAsync | -1",
+                "{blah");
+                
+            var service = provider.GetRequiredService<IService<int, Dto>>();
+            
+
+            // Act
+            var result = await service.GetAsync(-1);
+            
+            // Assert
+            Assert.AreEqual(dto1.Id, result.Id);
+        }
 
         public class Dto
         {
@@ -155,14 +196,14 @@ namespace Common.Tests.Caching.Integration
             private readonly Func<string> _syncFunc;
 
             public DelegatingService(Func<TParam, Task<TResult>> func, 
-                Func<Task<TResult>> funcParamless,
-                Func<TParam, Task<string>> funcStr,
-                Func<string> syncFunc)
+                Func<Task<TResult>> funcParamless = null,
+                Func<TParam, Task<string>> funcStr = null,
+                Func<string> syncFunc = null)
             {
                 _func = func ?? throw new ArgumentNullException(nameof(func));
-                _funcParamless = funcParamless ?? throw new ArgumentNullException(nameof(funcParamless));
-                _funcStr = funcStr ?? throw new ArgumentNullException(nameof(funcStr));
-                _syncFunc = syncFunc ?? throw new ArgumentNullException(nameof(syncFunc));
+                _funcParamless = funcParamless;
+                _funcStr = funcStr;
+                _syncFunc = syncFunc;
             }
         
             [Cache(1000)]

@@ -106,7 +106,7 @@ namespace Caching
             }
             else
             {
-                _memoryCache.Set(key, value, options.ToMemoryCacheEntryOptions());
+                _memoryCache.Set(key, value, MapCacheEntryOptions(options));
             }
         }
 
@@ -118,10 +118,32 @@ namespace Caching
             }
             else
             {
-                _memoryCache.Set(key, value, options.ToMemoryCacheEntryOptions());
+                _memoryCache.Set(key, value, MapCacheEntryOptions(options));
             }
             
             return Task.CompletedTask;
+        }
+        
+        
+        private static MemoryCacheEntryOptions MapCacheEntryOptions(CacheEntryOptions options)
+        {
+            var memoryCacheOptions = new MemoryCacheEntryOptions();
+            switch (options.Type)
+            {
+                case ExpirationType.NoExpiration:
+                    memoryCacheOptions.SetAbsoluteExpiration(TimeSpan.MinValue);
+                    break;
+                case ExpirationType.Relative:
+                    memoryCacheOptions.SetAbsoluteExpiration(options.Ttl);
+                    break;
+                case ExpirationType.Sliding:
+                    memoryCacheOptions.SetSlidingExpiration(options.Ttl);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            return memoryCacheOptions;
         }
     }
 }
